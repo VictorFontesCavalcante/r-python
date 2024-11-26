@@ -1,6 +1,6 @@
 pub type Name = String;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     TInteger,
     TBool,
@@ -18,6 +18,11 @@ pub enum Expression {
     CInt(i32),
     CReal(f64),
     CString(String),
+
+    /* list expressions */
+    List(Vec<Expression>),
+    ListIndex(Box<Expression>, Box<Expression>),
+    ListAppend(Box<Expression>, Box<Expression>),
 
     /* variable reference */
     Var(Name),

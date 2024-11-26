@@ -8,6 +8,14 @@ type Environment = HashMap<Name, Expression>;
 
 pub fn eval(exp: Expression, env: &Environment) -> Result<Expression, ErrorMessage> {
     match exp {
+        Expression::List(items) => {
+            let eval_items = items.iter()
+                                                   .map(|item| eval(item.clone(), env))
+                                                   .collect::<Result<Vec<_>, _>>()?;
+            Ok(Expression::List(eval_items))
+        }
+        Expression::ListIndex(list, index ) => list_index(*list, *index, env),
+        Expression::ListAppend(list, item) => list_append(*list, *item, env),
         Expression::Add(lhs, rhs) => add(*lhs, *rhs, env),
         Expression::Sub(lhs, rhs) => sub(*lhs, *rhs, env),
         Expression::Mul(lhs, rhs) => mul(*lhs, *rhs, env),
@@ -41,6 +49,32 @@ fn lookup(name: String, env: &Environment) -> Result<Expression, ErrorMessage> {
     match env.get(&name) {
         Some(value) => Ok(value.clone()),
         None => Err(format!("Variable {} not found", name)),
+    }
+}
+
+/* List Operations */
+fn list_index(list: Expression, index: Expression, env: &Environment) -> Result<Expression, ErrorMessage> {
+    let eval_list = eval(list, env)?;
+    let eval_index = eval(index, env)?;
+
+    match (eval_list, eval_index) {
+        (Expression::List(items), Expression::CInt(value)) if value >= 0 && (value as usize) < items.len() => {
+           Ok(items[value as usize].clone()) 
+        }
+        _ => Err(String::from("cannot access index."))
+    }
+}
+
+fn list_append(list: Expression, item: Expression, env: &Environment) -> Result<Expression, ErrorMessage> {
+    let eval_list = eval(list, env)?;
+    let eval_item = eval(item, env)?;
+
+    match eval_list {
+        Expression::List(mut items) => {
+            items.push(eval_item);
+            Ok(Expression::List(items))
+        }
+        _ => Err(String::from("can only append to list."))
     }
 }
 
@@ -752,5 +786,33 @@ mod tests {
             }
             Err(s) => assert!(false, "{}", s),
         }
+    }
+
+    #[test]
+    fn eval_list() {
+        let env = HashMap::new();
+        let list = eval(Expression::List(vec![Expression::CInt(1), Expression::CInt(2)]), &env);
+    
+        assert_eq!(list, Ok(Expression::List(vec![Expression::CInt(1), Expression::CInt(2)])))
+    }
+
+    #[test]
+    fn eval_list_index() {
+        let env = HashMap::new();
+        let list = Expression::List(vec![Expression::CInt(1), Expression::CInt(2)]);
+        let list_access = Expression::ListIndex(Box::new(list),
+                                                            Box::new(Expression::CInt(1)));
+
+        assert_eq!(eval(list_access, &env), Ok(Expression::CInt(2)))
+    }
+
+    #[test]
+    fn eval_list_append() {
+        let env = HashMap::new();
+        let list = Expression::List(vec![Expression::CInt(1)]);
+        let list_append = Expression::ListAppend(Box::new(list), 
+                                                             Box::new(Expression::CInt(2)));
+
+        assert_eq!(eval(list_append, &env), Ok(Expression::List(vec![Expression::CInt(1), Expression::CInt(2)])))
     }
 }
