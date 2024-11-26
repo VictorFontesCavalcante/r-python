@@ -8,12 +8,7 @@ type Environment = HashMap<Name, Expression>;
 
 pub fn eval(exp: Expression, env: &Environment) -> Result<Expression, ErrorMessage> {
     match exp {
-        Expression::List(items) => {
-            let eval_items = items.iter()
-                                                   .map(|item| eval(item.clone(), env))
-                                                   .collect::<Result<Vec<_>, _>>()?;
-            Ok(Expression::List(eval_items))
-        }
+        Expression::List(items) => list(items, env),
         Expression::ListIndex(list, index ) => list_index(*list, *index, env),
         Expression::ListAppend(list, item) => list_append(*list, *item, env),
         Expression::Add(lhs, rhs) => add(*lhs, *rhs, env),
@@ -53,6 +48,13 @@ fn lookup(name: String, env: &Environment) -> Result<Expression, ErrorMessage> {
 }
 
 /* List Operations */
+fn list(items: Vec<Expression>, env: &Environment) -> Result<Expression, ErrorMessage> {
+    let eval_items = items.iter()
+                                           .map(|item| eval(item.clone(), env))
+                                           .collect::<Result<Vec<_>, _>>()?;
+    Ok(Expression::List(eval_items))
+}
+
 fn list_index(list: Expression, index: Expression, env: &Environment) -> Result<Expression, ErrorMessage> {
     let eval_list = eval(list, env)?;
     let eval_index = eval(index, env)?;

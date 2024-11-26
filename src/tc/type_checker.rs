@@ -15,36 +15,9 @@ pub fn check(exp: Expression, env: &Environment) -> Result<Type, ErrorMessage> {
         Expression::CInt(_) => Ok(Type::TInteger),
         Expression::CReal(_) => Ok(Type::TReal),
         Expression::CString(_) => Ok(Type::TString),
-        Expression::List(items) => {
-            let mut iterator = items.iter().map(|item| check(item.clone(), env));
-            if let Some(item_type) = iterator.next().transpose()? {
-                if iterator.all(|item| item == Ok(item_type.clone())) {
-                    Ok(Type::TList(Box::new(item_type)))
-                } else {
-                    Err(String::from("[Type Error] all elements in a list must be of same type."))
-                }
-            } else {
-                Err(String::from("[Type Error] empty lists must be defined."))
-            }
-        }
-        Expression::ListIndex(list, index) => {
-            let list_type = check(*list, env)?;
-            let index_type = check(*index, env)?;
-
-            match (list_type, index_type) {
-                (Type::TList(item_type), Type::TInteger) => Ok(*item_type),
-                _ => Err(String::from("[Type Error] cannot access index."))
-            }
-        }
-        Expression::ListAppend(list, item) => {
-            let list_type = check(*list, env)?;
-            let item_type = check(*item, env)?;
-
-            match list_type {
-                Type::TList(element_type) if *element_type == item_type => Ok(Type::TList(element_type)),
-                _ => Err(String::from("[Type Error] item type must match be of same type as list.")),
-            }
-        }
+        Expression::List(items) => check_list_type(items, env),
+        Expression::ListIndex(list, index) => check_list_index(*list, *index, env),
+        Expression::ListAppend(list, item) => check_list_append(*list, *item, env),
         Expression::Add(l, r) => check_bin_arithmetic_expression(*l, *r, env),
         Expression::Sub(l, r) => check_bin_arithmetic_expression(*l, *r, env),
         Expression::Mul(l, r) => check_bin_arithmetic_expression(*l, *r, env),
@@ -58,6 +31,50 @@ pub fn check(exp: Expression, env: &Environment) -> Result<Type, ErrorMessage> {
         Expression::GTE(l, r) => check_bin_relational_expression(*l, *r, env),
         Expression::LTE(l, r) => check_bin_boolean_expression(*l, *r, env),
         _ => Err(String::from("not implemented yet")),
+    }
+}
+
+fn check_list_type (
+    items: Vec<Expression>,
+    env: &Environment
+) -> Result<Type, ErrorMessage> {
+    let mut checked_items = items.iter().map(|item| check(item.clone(), env));
+    if let Some(item_type) = checked_items.next().transpose()? {
+        if checked_items.all(|item| item == Ok(item_type.clone())) {
+            Ok(Type::TList(Box::new(item_type)))
+        } else {
+            Err(String::from("[Type Error] all elements in a list must be of same type."))
+        }
+    } else {
+        Err(String::from("[Type Error] empty lists must be defined."))
+    }
+}
+
+fn check_list_index (
+    list: Expression,
+    index: Expression,
+    env: &Environment
+) -> Result<Type, ErrorMessage> {
+    let list_type = check(list, env)?;
+    let index_type = check(index, env)?;
+
+    match (list_type, index_type) {
+        (Type::TList(item_type), Type::TInteger) => Ok(*item_type),
+        _ => Err(String::from("[Type Error] cannot access index."))
+    }
+}
+
+fn check_list_append (
+    list: Expression,
+    obj: Expression,
+    env: &Environment
+) -> Result<Type, ErrorMessage> {
+    let list_type = check(list, env)?;
+    let object_type = check(obj, env)?;
+
+    match list_type {
+        Type::TList(element_type) if *element_type == object_type => Ok(Type::TList(element_type)),
+        _ => Err(String::from("[Type Error] item type must be of same type as list.")),
     }
 }
 
@@ -282,6 +299,16 @@ mod tests {
     }
 
     #[test]
+    fn check_type_list_index_error() {
+        let env = HashMap::new();
+        let list = Expression::List(vec![Expression::CInt(1), Expression::CInt(2)]);
+        let list_index = Expression::ListIndex(Box::new(list),
+                                                           Box::new(Expression::CReal(1.0)));
+
+        assert_eq!(check(list_index, &env), Err(String::from("[Type Error] cannot access index.")))
+    }
+
+    #[test]
     fn check_type_list_append() {
         let env = HashMap::new();
         let list = Expression::List(vec![Expression::CInt(1)]);
@@ -289,5 +316,15 @@ mod tests {
                                                              Box::new(Expression::CInt(2)));
 
         assert_eq!(check(list_append, &env), Ok(Type::TList(Box::new(Type::TInteger))))
+    }
+
+    #[test]
+    fn check_type_list_append_error() {
+        let env = HashMap::new();
+        let list = Expression::List(vec![Expression::CInt(1)]);
+        let list_append = Expression::ListAppend(Box::new(list), 
+                                                             Box::new(Expression::CReal(2.0)));
+
+        assert_eq!(check(list_append, &env), Err(String::from("[Type Error] item type must be of same type as list.")))
     }
 }
