@@ -8,6 +8,7 @@ pub enum Type {
     TString,
     TList(Box<Type>),
     TTuple(Vec<Type>),
+    TFunction(Vec<Type>, Box<Type>)
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -19,13 +20,11 @@ pub enum Expression {
     CReal(f64),
     CString(String),
 
-    /* list expressions */
-    List(Vec<Expression>),
-    ListIndex(Box<Expression>, Box<Expression>),
-    ListAppend(Box<Expression>, Box<Expression>),
-
     /* variable reference */
     Var(Name),
+
+    /* function call */
+    FuncCall(Name, Vec<Expression>),
 
     /* arithmetic expressions over numbers */
     Add(Box<Expression>, Box<Expression>),
@@ -54,4 +53,6 @@ pub enum Statement {
     IfThenElse(Box<Expression>, Box<Statement>, Option<Box<Statement>>),
     While(Box<Expression>, Box<Statement>),
     Sequence(Box<Statement>, Box<Statement>),
+    FuncDef(Name, Vec<Name>, Box<Statement>),
+    Return(Expression)
 }
