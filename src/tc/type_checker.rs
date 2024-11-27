@@ -17,7 +17,6 @@ pub fn check(exp: Expression, env: &Environment) -> Result<Type, ErrorMessage> {
         Expression::CString(_) => Ok(Type::TString),
         Expression::List(items) => check_list_type(items, env),
         Expression::ListIndex(list, index) => check_list_index(*list, *index, env),
-        Expression::ListAppend(list, item) => check_list_append(*list, *item, env),
         Expression::Add(l, r) => check_bin_arithmetic_expression(*l, *r, env),
         Expression::Sub(l, r) => check_bin_arithmetic_expression(*l, *r, env),
         Expression::Mul(l, r) => check_bin_arithmetic_expression(*l, *r, env),
@@ -61,20 +60,6 @@ fn check_list_index (
     match (list_type, index_type) {
         (Type::TList(item_type), Type::TInteger) => Ok(*item_type),
         _ => Err(String::from("[Type Error] cannot access index."))
-    }
-}
-
-fn check_list_append (
-    list: Expression,
-    obj: Expression,
-    env: &Environment
-) -> Result<Type, ErrorMessage> {
-    let list_type = check(list, env)?;
-    let object_type = check(obj, env)?;
-
-    match list_type {
-        Type::TList(element_type) if *element_type == object_type => Ok(Type::TList(element_type)),
-        _ => Err(String::from("[Type Error] item type must be of same type as list.")),
     }
 }
 
@@ -306,25 +291,5 @@ mod tests {
                                                            Box::new(Expression::CReal(1.0)));
 
         assert_eq!(check(list_index, &env), Err(String::from("[Type Error] cannot access index.")))
-    }
-
-    #[test]
-    fn check_type_list_append() {
-        let env = HashMap::new();
-        let list = Expression::List(vec![Expression::CInt(1)]);
-        let list_append = Expression::ListAppend(Box::new(list), 
-                                                             Box::new(Expression::CInt(2)));
-
-        assert_eq!(check(list_append, &env), Ok(Type::TList(Box::new(Type::TInteger))))
-    }
-
-    #[test]
-    fn check_type_list_append_error() {
-        let env = HashMap::new();
-        let list = Expression::List(vec![Expression::CInt(1)]);
-        let list_append = Expression::ListAppend(Box::new(list), 
-                                                             Box::new(Expression::CReal(2.0)));
-
-        assert_eq!(check(list_append, &env), Err(String::from("[Type Error] item type must be of same type as list.")))
     }
 }

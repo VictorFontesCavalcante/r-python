@@ -22,7 +22,6 @@ pub enum Expression {
     /* list expressions */
     List(Vec<Expression>),
     ListIndex(Box<Expression>, Box<Expression>),
-    ListAppend(Box<Expression>, Box<Expression>),
 
     /* variable reference */
     Var(Name),
@@ -54,4 +53,5 @@ pub enum Statement {
     IfThenElse(Box<Expression>, Box<Statement>, Option<Box<Statement>>),
     While(Box<Expression>, Box<Statement>),
     Sequence(Box<Statement>, Box<Statement>),
+    ListAppend(Box<Expression>, Box<Expression>),
 }

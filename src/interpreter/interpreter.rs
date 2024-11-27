@@ -10,7 +10,6 @@ pub fn eval(exp: Expression, env: &Environment) -> Result<Expression, ErrorMessa
     match exp {
         Expression::List(items) => list(items, env),
         Expression::ListIndex(list, index ) => list_index(*list, *index, env),
-        Expression::ListAppend(list, item) => list_append(*list, *item, env),
         Expression::Add(lhs, rhs) => add(*lhs, *rhs, env),
         Expression::Sub(lhs, rhs) => sub(*lhs, *rhs, env),
         Expression::Mul(lhs, rhs) => mul(*lhs, *rhs, env),
@@ -64,19 +63,6 @@ fn list_index(list: Expression, index: Expression, env: &Environment) -> Result<
            Ok(items[value as usize].clone()) 
         }
         _ => Err(String::from("cannot access index."))
-    }
-}
-
-fn list_append(list: Expression, item: Expression, env: &Environment) -> Result<Expression, ErrorMessage> {
-    let eval_list = eval(list, env)?;
-    let eval_item = eval(item, env)?;
-
-    match eval_list {
-        Expression::List(mut items) => {
-            items.push(eval_item);
-            Ok(Expression::List(items))
-        }
-        _ => Err(String::from("can only append to list."))
     }
 }
 
@@ -338,6 +324,26 @@ pub fn execute(stmt: Statement, env: Environment) -> Result<Environment, ErrorMe
             Ok(new_env)
         }
         Statement::Sequence(s1, s2) => execute(*s1, env).and_then(|new_env| execute(*s2, new_env)),
+        Statement::ListAppend(list, item) => {
+            let eval_item = eval(*item, &env)?;
+            let mut new_env = env;
+
+            match *list {
+                Expression::List(_) => Err(String::from("appending to a list without reference variable")),
+                Expression::Var(name) => {
+                    match new_env.get(&name) {
+                        Some(Expression::List(items)) => {
+                            let mut new_items = items.clone();
+                            new_items.push(eval_item);
+                            new_env.insert(name, Expression::List(new_items));
+                            return Ok(new_env)
+                        }
+                        _ => Err(String::from("can only append to list."))
+                    }
+                }
+                _ => Err(String::from("can only append to list."))
+            }
+        }
         _ => Err(String::from("not implemented yet")),
     }
 }
@@ -809,12 +815,18 @@ mod tests {
     }
 
     #[test]
-    fn eval_list_append() {
+    fn execute_list_append() {
         let env = HashMap::new();
-        let list = Expression::List(vec![Expression::CInt(1)]);
-        let list_append = Expression::ListAppend(Box::new(list), 
-                                                             Box::new(Expression::CInt(2)));
+        let var = Statement::Assignment(String::from("a"), Box::new(Expression::List(vec![Expression::CInt(1)])));
+        let list_append = Statement::ListAppend(Box::new(Expression::Var(String::from("a"))), 
+                                                           Box::new(Expression::CInt(2)));
+        let program = Statement::Sequence(Box::new(var), Box::new(list_append));
 
-        assert_eq!(eval(list_append, &env), Ok(Expression::List(vec![Expression::CInt(1), Expression::CInt(2)])))
+        match execute(program, env) {
+            Ok(new_env) => {
+                assert_eq!(new_env.get("a"), Some(&Expression::List(vec![Expression::CInt(1), Expression::CInt(2)])))
+            }
+            Err(s) => assert!(false, "{}", s)
+        }
     }
 }
